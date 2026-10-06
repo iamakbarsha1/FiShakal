@@ -41,6 +41,13 @@ export function resolveGrams(
     throw new PortionResolutionError(`Count must be a positive number, got ${count}.`);
   }
 
+  const validKinds: PortionKind[] = ['metric', 'vessel', 'hand', 'photo', 'relative'];
+  if (!validKinds.includes(portion.kind)) {
+    throw new PortionResolutionError(
+      `Portion kind "${portion.kind}" is not recognized. Expected one of: ${validKinds.join(', ')}.`,
+    );
+  }
+
   if (portion.kind === 'relative') {
     const base = ctx.defaultPortionGrams;
     if (base === undefined) {

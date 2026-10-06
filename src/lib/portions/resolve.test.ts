@@ -68,4 +68,19 @@ describe('resolveGrams', () => {
   it('rejects negative stored grams', () => {
     expect(() => resolveGrams(portion({ grams: -5 }), 1)).toThrow(PortionResolutionError);
   });
+
+  it('throws on an unrecognised portion kind', () => {
+    const p = { ...portion({}), kind: 'oz' } as unknown as PortionDef;
+    expect(() => resolveGrams(p, 1)).toThrow(PortionResolutionError);
+  });
+
+  it('throws on an empty portion kind', () => {
+    const p = { ...portion({}), kind: '' } as unknown as PortionDef;
+    expect(() => resolveGrams(p, 1)).toThrow(PortionResolutionError);
+  });
+
+  it('multiplies a relative portion by count', () => {
+    const p = portion({ kind: 'relative', label: 'usual', grams: 0, multiplier: RELATIVE_MULTIPLIERS.usual });
+    expect(resolveGrams(p, 3, { defaultPortionGrams: 100 })).toBeCloseTo(300, 10);
+  });
 });
