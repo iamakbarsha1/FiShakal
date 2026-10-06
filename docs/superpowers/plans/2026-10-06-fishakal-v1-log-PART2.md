@@ -250,6 +250,7 @@ Create `src/lib/nutrition/totals.test.ts`:
 import { describe, it, expect } from 'vitest';
 import { computeDayTotals, type TotalsLookup } from './totals';
 import type { Dish, LogEntry, PortionDef, Recipe, Ingredient } from '@/lib/db/types';
+import { VESSEL_DEFAULT_ML } from '@/lib/portions/constants';
 
 const dish: Dish = {
   id: 'd-sambar', name: 'Sambar', ownerScope: 'seed', derivation: 'authored',
@@ -264,6 +265,7 @@ function lookup(over: Partial<TotalsLookup> = {}): TotalsLookup {
     portions: new Map([[katori.id, katori], [usual.id, usual]]),
     recipes: new Map<string, Recipe>(),
     ingredients: new Map<string, Ingredient>(),
+    vesselMl: { ...VESSEL_DEFAULT_ML },
     ...over,
   };
 }
@@ -371,6 +373,7 @@ import type {
 } from '@/lib/db/types';
 import { MEAL_SLOTS } from '@/lib/db/types';
 import { resolveGrams } from '@/lib/portions/resolve';
+import type { VesselName } from '@/lib/portions/constants';
 import { dishNutrientsPer100g } from './dish';
 import { addVectors, nutrientsForMass } from './nutrients';
 
@@ -379,6 +382,13 @@ export interface TotalsLookup {
   portions: Map<string, PortionDef>;
   recipes: Map<string, Recipe>;
   ingredients: Map<string, Ingredient>;
+  /**
+   * The user's current calibrated vessel volumes, in ml. Vessel portions
+   * resolve against these rather than against their stored grams, which is
+   * what makes recalibration correct history: nothing is rewritten, past
+   * entries simply resolve against the current value on the next read.
+   */
+  vesselMl: Record<VesselName, number>;
 }
 
 export interface SkippedEntry {
@@ -439,6 +449,8 @@ export function computeDayTotals(entries: LogEntry[], lookup: TotalsLookup): Day
     try {
       const grams = resolveGrams(portion, entry.count, {
         defaultPortionGrams: defaultPortion?.grams,
+        vesselMl: portion.vesselKey ? lookup.vesselMl[portion.vesselKey] : undefined,
+        densityGPerMl: dish.densityGPerMl,
       });
       const per100g = dishNutrientsPer100g(
         dish,
@@ -509,25 +521,41 @@ Create `src/lib/db/repo.ts`:
 import type { FiShakalDB } from './schema';
 import type { Dish, LogEntry, MealSlot } from './types';
 import type { TotalsLookup } from '@/lib/nutrition/totals';
+import { VESSEL_DEFAULT_ML, type VesselName } from '@/lib/portions/constants';
 import { dayKeyOf } from '@/lib/time/day';
 
 export function newId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
+/**
+ * The user's calibrated vessel volumes, falling back to the seeded defaults
+ * for any vessel they have not adjusted. Lives here rather than in Part 3's
+ * settings module because the aggregator needs it to resolve vessel portions.
+ */
+export async function allVesselMl(database: FiShakalDB): Promise<Record<VesselName, number>> {
+  const names = Object.keys(VESSEL_DEFAULT_ML) as VesselName[];
+  const rows = await database.settings.bulkGet(names.map((n) => `vessel.ml.${n}`));
+  return Object.fromEntries(
+    names.map((n, i) => [n, typeof rows[i]?.value === 'number' ? (rows[i]!.value as number) : VESSEL_DEFAULT_ML[n]]),
+  ) as Record<VesselName, number>;
+}
+
 /** Load every table needed to compute totals. The dataset is small by design. */
 export async function loadLookup(database: FiShakalDB): Promise<TotalsLookup> {
-  const [dishes, portions, recipes, ingredients] = await Promise.all([
+  const [dishes, portions, recipes, ingredients, vesselMl] = await Promise.all([
     database.dishes.toArray(),
     database.portions.toArray(),
     database.recipes.toArray(),
     database.ingredients.toArray(),
+    allVesselMl(database),
   ]);
   return {
     dishes: new Map(dishes.map((d) => [d.id, d])),
     portions: new Map(portions.map((p) => [p.id, p])),
     recipes: new Map(recipes.map((r) => [r.dishId, r])),
     ingredients: new Map(ingredients.map((i) => [i.id, i])),
+    vesselMl,
   };
 }
 
@@ -844,6 +872,24 @@ describe('logging round trip', () => {
     expect(result.skipped).toEqual([]);
   });
 
+  it('recalibrating a vessel corrects an already-logged entry', async () => {
+    await seedIfEmpty(db);
+    const dish = (await db.dishes.get('dish-sambar'))!;
+    const katori = (await db.portions.get(dish.defaultPortionId!))!;
+    expect(katori.vesselKey).toBe('katori');
+
+    await logMeal(db, { dishId: dish.id, portionId: katori.id, slot: 'lunch' });
+    const entries = await entriesForDay(db, dayKeyOf(new Date()));
+
+    const before = computeDayTotals(entries, await loadLookup(db));
+    await db.settings.put({ key: 'vessel.ml.katori', value: 300 });
+    const after = computeDayTotals(entries, await loadLookup(db));
+
+    expect(after.skipped).toEqual([]);
+    expect(after.totals.energy!).toBeGreaterThan(before.totals.energy!);
+    expect(after.totals.energy!).toBeCloseTo(before.totals.energy! * 2, 5);
+  });
+
   it('orders recent dishes for the slot first', async () => {
     await seedIfEmpty(db);
     await logMeal(db, { dishId: 'dish-biryani', portionId: (await db.dishes.get('dish-biryani'))!.defaultPortionId!, slot: 'lunch' });
@@ -938,7 +984,7 @@ export async function seedIfEmpty(database: FiShakalDB): Promise<{ seeded: boole
 npx vitest run src/lib/db/seed.test.ts
 ```
 
-Expected: PASS, 11 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 7: Expand the seed set to the spec target**
 

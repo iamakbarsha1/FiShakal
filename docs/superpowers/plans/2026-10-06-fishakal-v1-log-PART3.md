@@ -391,9 +391,9 @@ Create `src/lib/db/settings.ts`:
 
 ```typescript
 import type { FiShakalDB } from './schema';
-import { VESSEL_DEFAULT_ML } from '@/lib/portions/constants';
+import { VESSEL_DEFAULT_ML, type VesselName } from '@/lib/portions/constants';
 
-export type VesselName = keyof typeof VESSEL_DEFAULT_ML;
+export type { VesselName };
 
 function key(vessel: VesselName): string {
   return `vessel.ml.${vessel}`;
@@ -415,11 +415,10 @@ export async function setVesselMl(
   await database.settings.put({ key: key(vessel), value: ml });
 }
 
-export async function allVesselMl(database: FiShakalDB): Promise<Record<VesselName, number>> {
-  const names = Object.keys(VESSEL_DEFAULT_ML) as VesselName[];
-  const values = await Promise.all(names.map((n) => getVesselMl(database, n)));
-  return Object.fromEntries(names.map((n, i) => [n, values[i]])) as Record<VesselName, number>;
-}
+// allVesselMl lives in src/lib/db/repo.ts, added in Part 2 Task 8, because the
+// totals aggregator needs it. Re-exported here so the settings page has one
+// import for everything calibration-related.
+export { allVesselMl } from './repo';
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**

@@ -1,3 +1,6 @@
+import type { VesselName } from './constants';
+import { FiShakalError } from '@/lib/errors';
+
 export type PortionKind = 'metric' | 'vessel' | 'hand' | 'photo' | 'relative';
 
 export interface PortionDef {
@@ -5,6 +8,13 @@ export interface PortionDef {
   dishId: string;
   kind: PortionKind;
   label: string;
+  /**
+   * Which household vessel this portion represents, when `kind` is 'vessel'.
+   * Without it, recalibrating a vessel in settings cannot find the portions
+   * that used it, and spec line 129's promise that recalibration corrects
+   * history cannot be kept.
+   */
+  vesselKey?: VesselName;
   /** Resolved mass for every kind except `relative`, which uses `multiplier`. */
   grams: number;
   /** Required when `kind` is `relative`. */
@@ -18,7 +28,7 @@ export interface ResolveContext {
   defaultPortionGrams?: number;
 }
 
-export class PortionResolutionError extends Error {
+export class PortionResolutionError extends FiShakalError {
   constructor(message: string) {
     super(message);
     this.name = 'PortionResolutionError';

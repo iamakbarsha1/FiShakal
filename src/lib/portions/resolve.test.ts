@@ -20,6 +20,11 @@ describe('resolveGrams', () => {
     expect(resolveGrams(p, 1)).toBe(150);
   });
 
+  it('resolves a vessel portion carrying a vesselKey from its stored grams, unchanged', () => {
+    const p = portion({ kind: 'vessel', label: '1 katori', grams: 150, vesselKey: 'katori' });
+    expect(resolveGrams(p, 1)).toBe(150);
+  });
+
   it('resolves a hand portion from its stored grams', () => {
     const p = portion({ kind: 'hand', label: '1 palm', grams: 100 });
     expect(resolveGrams(p, 1)).toBe(100);

@@ -1,10 +1,25 @@
 import type { Dish, Recipe, Ingredient, NutrientVector } from '@/lib/db/types';
+import { FiShakalError } from '@/lib/errors';
 import { addVectors, nutrientsForMass, scaleVector, ZERO_VECTOR } from './nutrients';
 
-export class RecipeComputationError extends Error {
+export class RecipeComputationError extends FiShakalError {
   constructor(message: string) {
     super(message);
     this.name = 'RecipeComputationError';
+  }
+}
+
+/**
+ * Both the authored-dish path and the recipe path read nutrient values from
+ * the same untrusted boundary: IndexedDB and user JSON imports. A NaN or
+ * Infinity here must throw, not propagate — otherwise it silently becomes
+ * NaN for that nutrient across an entire day's totals, unreported.
+ */
+function assertFiniteVector(vector: NutrientVector, label: string): void {
+  for (const [key, value] of Object.entries(vector)) {
+    if (!Number.isFinite(value)) {
+      throw new RecipeComputationError(`${label} has a non-finite value for ${key}: ${value}.`);
+    }
   }
 }
 
@@ -45,13 +60,7 @@ export function computeRecipeNutrients(
         `Recipe ${recipe.id} has invalid mass for ${item.ingredientId}: ${item.grams}.`,
       );
     }
-    for (const [key, value] of Object.entries(ingredient.per100g)) {
-      if (!Number.isFinite(value)) {
-        throw new RecipeComputationError(
-          `Ingredient ${ingredient.id} has a non-finite value for ${key}: ${value}.`,
-        );
-      }
-    }
+    assertFiniteVector(ingredient.per100g, `Ingredient ${ingredient.id}`);
     total = addVectors(total, nutrientsForMass(ingredient.per100g, item.grams));
   }
 
@@ -68,7 +77,10 @@ export function dishNutrientsPer100g(
   recipe: Recipe | undefined,
   ingredientsById: Map<string, Ingredient>,
 ): NutrientVector {
-  if (dish.derivation === 'authored') return dish.per100g;
+  if (dish.derivation === 'authored') {
+    assertFiniteVector(dish.per100g, `Dish ${dish.id}`);
+    return { ...dish.per100g };
+  }
   if (!recipe) {
     throw new RecipeComputationError(
       `Dish ${dish.id} is recipe-derived but no recipe was supplied.`,

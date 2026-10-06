@@ -1,5 +1,14 @@
 import type { NutrientKey } from './units';
 import type { NutrientVector } from '@/lib/db/types';
+import { FiShakalError } from '@/lib/errors';
+
+/** Guards the two quantities every vector operation scales by: a scale factor, a mass. */
+export class InvalidQuantityError extends FiShakalError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidQuantityError';
+  }
+}
 
 export const ZERO_VECTOR: NutrientVector = Object.freeze({});
 

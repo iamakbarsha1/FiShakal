@@ -23,6 +23,8 @@ export const VESSEL_DEFAULT_ML = {
   plate: 400,
 } as const;
 
+export type VesselName = keyof typeof VESSEL_DEFAULT_ML;
+
 /**
  * Seeded hand-unit masses in grams. These scale with the user's own hand,
  * which is the point: no calibration step, no props.
