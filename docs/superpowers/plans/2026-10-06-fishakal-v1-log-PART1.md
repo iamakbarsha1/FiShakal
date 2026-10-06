@@ -758,16 +758,23 @@ export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
   dinner: 'Dinner',
 };
 
-export interface Ingredient {
+interface IngredientBase {
   id: string;
   name: string;
   /** Per 100 g, canonical units. */
   per100g: NutrientVector;
   densityGPerMl?: number;
-  /** Provenance, required by spec §13 so licensing stays auditable. */
-  source: 'usda-fdc' | 'authored';
-  sourceRef?: string;
 }
+
+/**
+ * Provenance, required by spec §13 so licensing stays auditable: a
+ * `usda-fdc` ingredient must carry the reference it was pulled from, and an
+ * `authored` one, invented in-house, has no reference to carry. Modelled as
+ * a union rather than two loose fields so the compiler refuses a provenance
+ * claim with nothing behind it.
+ */
+export type Ingredient = IngredientBase &
+  ({ source: 'usda-fdc'; sourceRef: string } | { source: 'authored'; sourceRef?: never });
 
 export type DishDerivation = 'authored' | 'recipe';
 
@@ -1033,11 +1040,11 @@ import { dishNutrientsPer100g, computeRecipeNutrients, RecipeComputationError } 
 import type { Dish, Recipe, Ingredient } from '@/lib/db/types';
 
 const DAL: Ingredient = {
-  id: 'i-dal', name: 'Toor dal, dry', source: 'usda-fdc',
+  id: 'i-dal', name: 'Toor dal, dry', source: 'usda-fdc', sourceRef: 'fdc:172421',
   per100g: { energy: 343, protein: 22, fat: 1.5, carbs: 63, iron: 5.1 },
 };
 const OIL: Ingredient = {
-  id: 'i-oil', name: 'Sunflower oil', source: 'usda-fdc',
+  id: 'i-oil', name: 'Sunflower oil', source: 'usda-fdc', sourceRef: 'fdc:171412',
   per100g: { energy: 884, protein: 0, fat: 100, carbs: 0 },
 };
 const INGREDIENTS = new Map([[DAL.id, DAL], [OIL.id, OIL]]);

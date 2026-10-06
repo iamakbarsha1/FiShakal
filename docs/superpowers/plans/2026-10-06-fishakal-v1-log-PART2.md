@@ -633,30 +633,43 @@ import {
   DEFAULT_DENSITY_G_PER_ML, type VesselName,
 } from '@/lib/portions/constants';
 
+/**
+ * Seed ingredient values are hand-authored approximations, so every one is
+ * `source: 'authored'`. None has been checked against a USDA FoodData Central
+ * record, and the `Ingredient` union refuses a `usda-fdc` claim without the
+ * reference to back it, which is how this was caught.
+ *
+ * Upgrading one is per-row work, not a bulk edit: look the food up in FDC,
+ * replace the numbers with that record's, and switch it to
+ * `source: 'usda-fdc', sourceRef: '<fdcId>'`. Do that for an ingredient
+ * whenever its accuracy starts to matter; the plan does not require it up
+ * front, because an approximate value with honest provenance beats a precise
+ * claim nobody verified.
+ */
 export const SEED_INGREDIENTS: Ingredient[] = [
-  { id: 'ing-toor-dal', name: 'Toor dal, dry', source: 'usda-fdc', densityGPerMl: 0.85,
+  { id: 'ing-toor-dal', name: 'Toor dal, dry', source: 'authored', densityGPerMl: 0.85,
     per100g: { energy: 343, protein: 22, fat: 1.5, carbs: 63, fiber: 15, iron: 5.1, calcium: 130 } },
-  { id: 'ing-soya-chunks', name: 'Soya chunks, dry', source: 'usda-fdc', densityGPerMl: 0.3,
+  { id: 'ing-soya-chunks', name: 'Soya chunks, dry', source: 'authored', densityGPerMl: 0.3,
     per100g: { energy: 345, protein: 52, fat: 0.5, carbs: 33, fiber: 13, iron: 20, calcium: 350 } },
-  { id: 'ing-kondakadalai', name: 'Chana (kondakadalai), dry', source: 'usda-fdc', densityGPerMl: 0.8,
+  { id: 'ing-kondakadalai', name: 'Chana (kondakadalai), dry', source: 'authored', densityGPerMl: 0.8,
     per100g: { energy: 364, protein: 19, fat: 6, carbs: 61, fiber: 17, iron: 6.2, calcium: 105 } },
-  { id: 'ing-rice-raw', name: 'Rice, raw milled', source: 'usda-fdc', densityGPerMl: 0.85,
+  { id: 'ing-rice-raw', name: 'Rice, raw milled', source: 'authored', densityGPerMl: 0.85,
     per100g: { energy: 360, protein: 7, fat: 0.6, carbs: 79, fiber: 1.3, iron: 0.8 } },
-  { id: 'ing-egg', name: 'Egg, whole', source: 'usda-fdc', densityGPerMl: 1.03,
+  { id: 'ing-egg', name: 'Egg, whole', source: 'authored', densityGPerMl: 1.03,
     per100g: { energy: 143, protein: 13, fat: 9.5, carbs: 0.7, iron: 1.8, vitaminD: 2, vitaminB12: 0.9 } },
-  { id: 'ing-chicken-breast', name: 'Chicken, skinless', source: 'usda-fdc', densityGPerMl: 1.05,
+  { id: 'ing-chicken-breast', name: 'Chicken, skinless', source: 'authored', densityGPerMl: 1.05,
     per100g: { energy: 165, protein: 31, fat: 3.6, carbs: 0, iron: 1, vitaminB12: 0.3 } },
-  { id: 'ing-sardine', name: 'Sardine (mathi)', source: 'usda-fdc', densityGPerMl: 1.05,
+  { id: 'ing-sardine', name: 'Sardine (mathi)', source: 'authored', densityGPerMl: 1.05,
     per100g: { energy: 208, protein: 25, fat: 11.5, carbs: 0, calcium: 382, vitaminD: 4.8, vitaminB12: 8.9 } },
-  { id: 'ing-curd', name: 'Curd, whole milk', source: 'usda-fdc', densityGPerMl: 1.03,
+  { id: 'ing-curd', name: 'Curd, whole milk', source: 'authored', densityGPerMl: 1.03,
     per100g: { energy: 61, protein: 3.5, fat: 3.3, carbs: 4.7, calcium: 121, vitaminB12: 0.4 } },
-  { id: 'ing-oil', name: 'Cooking oil', source: 'usda-fdc', densityGPerMl: 0.92,
+  { id: 'ing-oil', name: 'Cooking oil', source: 'authored', densityGPerMl: 0.92,
     per100g: { energy: 884, protein: 0, fat: 100, carbs: 0 } },
-  { id: 'ing-onion', name: 'Onion', source: 'usda-fdc', densityGPerMl: 0.95,
+  { id: 'ing-onion', name: 'Onion', source: 'authored', densityGPerMl: 0.95,
     per100g: { energy: 40, protein: 1.1, fat: 0.1, carbs: 9.3, fiber: 1.7 } },
-  { id: 'ing-tomato', name: 'Tomato', source: 'usda-fdc', densityGPerMl: 0.95,
+  { id: 'ing-tomato', name: 'Tomato', source: 'authored', densityGPerMl: 0.95,
     per100g: { energy: 18, protein: 0.9, fat: 0.2, carbs: 3.9, fiber: 1.2 } },
-  { id: 'ing-coconut', name: 'Coconut, fresh grated', source: 'usda-fdc', densityGPerMl: 0.5,
+  { id: 'ing-coconut', name: 'Coconut, fresh grated', source: 'authored', densityGPerMl: 0.5,
     per100g: { energy: 354, protein: 3.3, fat: 33, carbs: 15, fiber: 9 } },
 ];
 
@@ -1035,8 +1048,10 @@ git add src/lib/db/
 git commit -m "feat: repository layer and seed data
 
 Seeds the dish and ingredient set authored from PLAN.md, FOOD.md and
-WEEK.md, with USDA FoodData Central (CC0) for ingredient primitives. No
-other data source is permitted by spec section 13.
+WEEK.md. Ingredient values are hand-authored approximations and are marked
+`source: 'authored'` accordingly; none claims USDA provenance it does not
+have. Spec section 13 permits only USDA FoodData Central and hand-authored
+data, and the Ingredient union enforces which of the two a row is claiming.
 
 Every seeded dish ships with a default portion, so relative sizing
 resolves from the very first log rather than throwing on a fresh install.
