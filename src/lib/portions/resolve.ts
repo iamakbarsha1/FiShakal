@@ -1,4 +1,4 @@
-import type { VesselName } from './constants';
+import { DEFAULT_DENSITY_G_PER_ML, type VesselName } from './constants';
 import { FiShakalError } from '@/lib/errors';
 
 export type PortionKind = 'metric' | 'vessel' | 'hand' | 'photo' | 'relative';
@@ -26,6 +26,16 @@ export interface PortionDef {
 export interface ResolveContext {
   /** The dish's baseline portion mass. Required for `relative` portions. */
   defaultPortionGrams?: number;
+  /**
+   * The user's current calibrated volume for this portion's vessel, in ml.
+   * When supplied together with the portion's `vesselKey`, the mass is
+   * recomputed from it rather than read from the stored `grams`. This is
+   * what makes recalibration correct history: nothing is rewritten, every
+   * past entry simply resolves against the current value.
+   */
+  vesselMl?: number;
+  /** The dish's density. Defaults to DEFAULT_DENSITY_G_PER_ML. */
+  densityGPerMl?: number;
 }
 
 export class PortionResolutionError extends FiShakalError {
@@ -75,6 +85,21 @@ export function resolveGrams(
       );
     }
     return base * portion.multiplier * count;
+  }
+
+  if (portion.kind === 'vessel' && portion.vesselKey !== undefined && ctx.vesselMl !== undefined) {
+    if (!Number.isFinite(ctx.vesselMl) || ctx.vesselMl <= 0) {
+      throw new PortionResolutionError(
+        `Calibrated volume for vessel "${portion.vesselKey}" is invalid: ${ctx.vesselMl}.`,
+      );
+    }
+    const density = ctx.densityGPerMl ?? DEFAULT_DENSITY_G_PER_ML;
+    if (!Number.isFinite(density) || density <= 0) {
+      throw new PortionResolutionError(
+        `Density for portion "${portion.label}" is invalid: ${density}.`,
+      );
+    }
+    return ctx.vesselMl * density * count;
   }
 
   if (!Number.isFinite(portion.grams) || portion.grams < 0) {

@@ -25,6 +25,37 @@ describe('resolveGrams', () => {
     expect(resolveGrams(p, 1)).toBe(150);
   });
 
+  it('resolves a vessel portion with a vesselKey but no vesselMl in context from its stored grams, unchanged', () => {
+    const p = portion({ kind: 'vessel', label: '1 katori', grams: 150, vesselKey: 'katori' });
+    expect(resolveGrams(p, 1, {})).toBe(150);
+  });
+
+  it('recalibrates a vessel portion from the current vesselMl, ignoring stored grams', () => {
+    const p = portion({ kind: 'vessel', label: '1 katori', grams: 150, vesselKey: 'katori' });
+    expect(resolveGrams(p, 1, { vesselMl: 180 })).toBe(180);
+  });
+
+  it('applies density when recalibrating a vessel portion from vesselMl', () => {
+    const p = portion({ kind: 'vessel', label: '1 katori', grams: 150, vesselKey: 'katori' });
+    expect(resolveGrams(p, 1, { vesselMl: 180, densityGPerMl: 0.85 })).toBeCloseTo(180 * 0.85, 10);
+  });
+
+  it('ignores vesselMl in context when the portion carries no vesselKey', () => {
+    const p = portion({ kind: 'vessel', label: '1 katori', grams: 150 });
+    expect(resolveGrams(p, 1, { vesselMl: 180 })).toBe(150);
+  });
+
+  it('throws on a non-positive calibrated vesselMl', () => {
+    const p = portion({ kind: 'vessel', label: '1 katori', grams: 150, vesselKey: 'katori' });
+    expect(() => resolveGrams(p, 1, { vesselMl: 0 })).toThrow(PortionResolutionError);
+    expect(() => resolveGrams(p, 1, { vesselMl: -5 })).toThrow(PortionResolutionError);
+  });
+
+  it('leaves a non-vessel portion unaffected by vesselMl in context', () => {
+    const p = portion({ kind: 'metric', label: '100 g', grams: 100 });
+    expect(resolveGrams(p, 1, { vesselMl: 180 })).toBe(100);
+  });
+
   it('resolves a hand portion from its stored grams', () => {
     const p = portion({ kind: 'hand', label: '1 palm', grams: 100 });
     expect(resolveGrams(p, 1)).toBe(100);
