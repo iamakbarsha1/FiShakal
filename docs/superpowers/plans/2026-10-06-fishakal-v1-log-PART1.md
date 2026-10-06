@@ -21,7 +21,7 @@ These apply to every task in all three parts.
 
 - **Node 20+**, package manager `npm`. Lockfile is committed.
 - **Next.js 15 or later, App Router, with `output: 'export'`.** Task 1 installed 16.3.8, which `create-next-app@latest` now ships; Turbopack is its default builder. `output: 'export'` is unaffected and the build writes `out/`. No server components doing data access, no route handlers, no server actions. Any code touching the database is client-side.
-- **TypeScript `strict: true`.** No `any` in committed code. No non-null assertions (`!`) except in Dexie table declarations, which require them.
+- **TypeScript `strict: true`.** No `any` in committed code. No non-null assertions (`!`) in production code, except on Dexie table declarations, which require them. `!` IS permitted in `*.test.ts` files: a test that dereferences an unexpected `undefined` throws and fails, which is the behaviour wanted, and the alternative adds assertion noise to every fixture lookup.
 - **No new runtime dependency** may be added beyond those named in Tech Stack without the dependency being justified in the task that adds it.
 - **All nutrition and portion logic lives under `src/lib/` and imports nothing from `react`, `next`, or `dexie`.** Database access is confined to `src/lib/db/`. This boundary is what makes the logic testable and is enforced by Task 1's lint rule.
 - **Canonical nutrient units are fixed at the storage layer.** Every value entering the system passes through `toCanonical()`. Writing a raw number into a nutrient field is a defect.

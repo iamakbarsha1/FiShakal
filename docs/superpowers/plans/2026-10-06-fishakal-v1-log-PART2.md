@@ -421,9 +421,20 @@ export function computeDayTotals(entries: LogEntry[], lookup: TotalsLookup): Day
       continue;
     }
 
+    // A dish's default portion must never itself be `relative`: its grams
+    // are 0, so resolveGrams would reject it and every relative entry on
+    // that dish would disappear into `skipped` with no clear cause. Task 8
+    // has a seed test enforcing this; the guard here names it if it happens.
     const defaultPortion = dish.defaultPortionId
       ? lookup.portions.get(dish.defaultPortionId)
       : undefined;
+    if (defaultPortion?.kind === 'relative') {
+      skipped.push({
+        entryId: entry.id,
+        reason: `Dish ${dish.id} has a relative portion as its default, which cannot be a baseline.`,
+      });
+      continue;
+    }
 
     try {
       const grams = resolveGrams(portion, entry.count, {
@@ -589,7 +600,10 @@ This file is deliberately data-only. Extend it rather than scattering food value
 
 ```typescript
 import type { Ingredient, NutrientVector } from './types';
-import { RELATIVE_MULTIPLIERS, VESSEL_DEFAULT_ML, HAND_DEFAULT_GRAMS } from '@/lib/portions/constants';
+import {
+  RELATIVE_MULTIPLIERS, VESSEL_DEFAULT_ML, HAND_DEFAULT_GRAMS,
+  DEFAULT_DENSITY_G_PER_ML, type VesselName,
+} from '@/lib/portions/constants';
 
 export const SEED_INGREDIENTS: Ingredient[] = [
   { id: 'ing-toor-dal', name: 'Toor dal, dry', source: 'usda-fdc', densityGPerMl: 0.85,
@@ -620,6 +634,8 @@ export const SEED_INGREDIENTS: Ingredient[] = [
 
 export interface SeedPortion {
   kind: 'vessel' | 'hand' | 'metric' | 'relative';
+  /** Required when kind is 'vessel', so settings recalibration can find it. */
+  vesselKey?: VesselName;
   label: string;
   grams: number;
   multiplier?: number;
@@ -634,8 +650,16 @@ export interface SeedDish {
   portions: SeedPortion[];
 }
 
-const katoriGrams = Math.round(VESSEL_DEFAULT_ML.katori * 1.0);
-const ladleGrams = Math.round(VESSEL_DEFAULT_ML.ladle * 1.0);
+/**
+ * Vessel portions store a MASS, not a volume. Converting one to the other
+ * needs the dish's density, so it is explicit here rather than implied.
+ * Writing a millilitre figure straight into a grams field is correct only
+ * when density happens to be 1.0 and silently wrong otherwise, which is the
+ * same unit-confusion class the nutrient layer has a dedicated test for.
+ */
+function vesselGrams(vessel: VesselName, densityGPerMl: number = DEFAULT_DENSITY_G_PER_ML): number {
+  return Math.round(VESSEL_DEFAULT_ML[vessel] * densityGPerMl);
+}
 
 /**
  * Seed dishes authored from PLAN.md, FOOD.md and WEEK.md. Every dish ships
@@ -644,26 +668,26 @@ const ladleGrams = Math.round(VESSEL_DEFAULT_ML.ladle * 1.0);
 export const SEED_DISHES: SeedDish[] = [
   { id: 'dish-sambar', name: 'Sambar', per100g: { energy: 62, protein: 3.1, fat: 1.8, carbs: 8.4, fiber: 2.2, iron: 0.9 },
     portions: [
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams, isDefault: true },
-      { kind: 'vessel', label: '1 ladle', grams: ladleGrams },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori'), isDefault: true },
+      { kind: 'vessel', vesselKey: 'ladle', label: '1 ladle', grams: vesselGrams('ladle') },
       { kind: 'relative', label: 'Less', grams: 0, multiplier: RELATIVE_MULTIPLIERS.less },
       { kind: 'relative', label: 'More', grams: 0, multiplier: RELATIVE_MULTIPLIERS.more },
     ] },
   { id: 'dish-rasam', name: 'Rasam', per100g: { energy: 28, protein: 1.1, fat: 0.9, carbs: 4.1, iron: 0.5 },
     portions: [
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams, isDefault: true },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori'), isDefault: true },
       { kind: 'relative', label: 'More', grams: 0, multiplier: RELATIVE_MULTIPLIERS.more },
     ] },
   { id: 'dish-white-rice', name: 'White rice, cooked', per100g: { energy: 130, protein: 2.7, fat: 0.3, carbs: 28, fiber: 0.4 },
     portions: [
       { kind: 'hand', label: '1 fist', grams: HAND_DEFAULT_GRAMS.fist, isDefault: true },
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori') },
       { kind: 'relative', label: 'Less', grams: 0, multiplier: RELATIVE_MULTIPLIERS.less },
       { kind: 'metric', label: '100 g', grams: 100 },
     ] },
   { id: 'dish-soya-curry', name: 'Soya chunks curry', per100g: { energy: 118, protein: 14, fat: 3.5, carbs: 8, fiber: 3.4, iron: 4.2, calcium: 85 },
     portions: [
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams, isDefault: true },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori'), isDefault: true },
       { kind: 'hand', label: '1 palm', grams: HAND_DEFAULT_GRAMS.palm },
       { kind: 'relative', label: 'More', grams: 0, multiplier: RELATIVE_MULTIPLIERS.more },
     ] },
@@ -675,7 +699,7 @@ export const SEED_DISHES: SeedDish[] = [
     ] },
   { id: 'dish-chicken-curry', name: 'Chicken curry', per100g: { energy: 165, protein: 18, fat: 9, carbs: 3.2, iron: 1.3, vitaminB12: 0.3 },
     portions: [
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams, isDefault: true },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori'), isDefault: true },
       { kind: 'hand', label: '1 palm', grams: HAND_DEFAULT_GRAMS.palm },
       { kind: 'relative', label: 'More', grams: 0, multiplier: RELATIVE_MULTIPLIERS.more },
     ] },
@@ -686,8 +710,8 @@ export const SEED_DISHES: SeedDish[] = [
     ] },
   { id: 'dish-curd', name: 'Curd', per100g: { energy: 61, protein: 3.5, fat: 3.3, carbs: 4.7, calcium: 121, vitaminB12: 0.4 },
     portions: [
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams, isDefault: true },
-      { kind: 'vessel', label: '1 tumbler', grams: VESSEL_DEFAULT_ML.tumbler },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori'), isDefault: true },
+      { kind: 'vessel', vesselKey: 'tumbler', label: '1 tumbler', grams: vesselGrams('tumbler') },
     ] },
   { id: 'dish-chapati', name: 'Chapati', per100g: { energy: 297, protein: 9, fat: 7, carbs: 49, fiber: 5, iron: 2.5 },
     portions: [
@@ -705,7 +729,7 @@ export const SEED_DISHES: SeedDish[] = [
     portions: [{ kind: 'metric', label: '1 dosa', grams: 85, isDefault: true }, { kind: 'metric', label: '2 dosa', grams: 170 }] },
   { id: 'dish-kondakadalai-sundal', name: 'Kondakadalai sundal', per100g: { energy: 164, protein: 8.9, fat: 2.6, carbs: 27, fiber: 7.6, iron: 2.9 },
     portions: [
-      { kind: 'vessel', label: '1 katori', grams: katoriGrams, isDefault: true },
+      { kind: 'vessel', vesselKey: 'katori', label: '1 katori', grams: vesselGrams('katori'), isDefault: true },
       { kind: 'hand', label: '1 cupped hand', grams: HAND_DEFAULT_GRAMS.cuppedHand },
     ] },
   { id: 'dish-biryani', name: 'Biryani', per100g: { energy: 185, protein: 8.5, fat: 7.5, carbs: 21, fiber: 1.4 },
@@ -715,7 +739,7 @@ export const SEED_DISHES: SeedDish[] = [
       { kind: 'relative', label: 'More', grams: 0, multiplier: RELATIVE_MULTIPLIERS.more },
     ] },
   { id: 'dish-black-coffee', name: 'Black coffee, no sugar', per100g: { energy: 2, protein: 0.1, fat: 0, carbs: 0 },
-    portions: [{ kind: 'vessel', label: '1 tumbler', grams: VESSEL_DEFAULT_ML.tumbler, isDefault: true }] },
+    portions: [{ kind: 'vessel', vesselKey: 'tumbler', label: '1 tumbler', grams: vesselGrams('tumbler'), isDefault: true }] },
 ];
 ```
 
@@ -761,6 +785,23 @@ describe('seedIfEmpty', () => {
     for (const dish of await db.dishes.toArray()) {
       expect(dish.defaultPortionId, `${dish.name} has no default portion`).toBeDefined();
       expect(await db.portions.get(dish.defaultPortionId!)).toBeDefined();
+    }
+  });
+
+  it('gives every vessel portion a vesselKey', async () => {
+    await seedIfEmpty(db);
+    const vessels = await db.portions.where('kind').equals('vessel').toArray();
+    expect(vessels.length).toBeGreaterThan(0);
+    for (const p of vessels) {
+      expect(p.vesselKey, `${p.label} on ${p.dishId} has no vesselKey`).toBeDefined();
+    }
+  });
+
+  it('never makes a relative portion a dish default', async () => {
+    await seedIfEmpty(db);
+    for (const dish of await db.dishes.toArray()) {
+      const def = await db.portions.get(dish.defaultPortionId!);
+      expect(def?.kind, `${dish.name} defaults to a relative portion`).not.toBe('relative');
     }
   });
 
@@ -858,6 +899,7 @@ export async function seedIfEmpty(database: FiShakalDB): Promise<{ seeded: boole
         kind: p.kind,
         label: p.label,
         grams: p.grams,
+        ...(p.vesselKey !== undefined ? { vesselKey: p.vesselKey } : {}),
         ...(p.multiplier !== undefined ? { multiplier: p.multiplier } : {}),
       };
       portions.push(portion);
@@ -896,7 +938,7 @@ export async function seedIfEmpty(database: FiShakalDB): Promise<{ seeded: boole
 npx vitest run src/lib/db/seed.test.ts
 ```
 
-Expected: PASS, 9 tests.
+Expected: PASS, 11 tests.
 
 - [ ] **Step 7: Expand the seed set to the spec target**
 
