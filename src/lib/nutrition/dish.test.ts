@@ -3,11 +3,11 @@ import { dishNutrientsPer100g, computeRecipeNutrients, RecipeComputationError } 
 import type { Dish, Recipe, Ingredient } from '@/lib/db/types';
 
 const DAL: Ingredient = {
-  id: 'i-dal', name: 'Toor dal, dry', source: 'usda-fdc',
+  id: 'i-dal', name: 'Toor dal, dry', source: 'usda-fdc', sourceRef: 'fdc:172421',
   per100g: { energy: 343, protein: 22, fat: 1.5, carbs: 63, iron: 5.1 },
 };
 const OIL: Ingredient = {
-  id: 'i-oil', name: 'Sunflower oil', source: 'usda-fdc',
+  id: 'i-oil', name: 'Sunflower oil', source: 'usda-fdc', sourceRef: 'fdc:171412',
   per100g: { energy: 884, protein: 0, fat: 100, carbs: 0 },
 };
 const INGREDIENTS = new Map([[DAL.id, DAL], [OIL.id, OIL]]);
@@ -61,6 +61,28 @@ describe('dishNutrientsPer100g', () => {
   it('throws when the supplied recipe belongs to another dish', () => {
     const r: Recipe = { id: 'r1', dishId: 'other-dish', items: [{ ingredientId: 'i-dal', grams: 100 }], yieldGrams: 500, retentionFactor: 1 };
     expect(() => dishNutrientsPer100g(dish({ derivation: 'recipe' }), r, INGREDIENTS)).toThrow(RecipeComputationError);
+  });
+
+  it('throws when an authored dish has a NaN value', () => {
+    const d = dish({ per100g: { energy: 60, protein: Number.NaN } });
+    expect(() => dishNutrientsPer100g(d, undefined, INGREDIENTS)).toThrow(RecipeComputationError);
+  });
+
+  it('throws when an authored dish has an Infinity value', () => {
+    const d = dish({ per100g: { energy: Number.POSITIVE_INFINITY, protein: 3 } });
+    expect(() => dishNutrientsPer100g(d, undefined, INGREDIENTS)).toThrow(RecipeComputationError);
+  });
+
+  it('returns an authored per100g object that is not the same reference as dish.per100g', () => {
+    const d = dish();
+    const result = dishNutrientsPer100g(d, undefined, INGREDIENTS);
+    expect(result).not.toBe(d.per100g);
+    expect(result).toEqual(d.per100g);
+  });
+
+  it('accepts an authored dish with a legitimate 0 value', () => {
+    const d = dish({ per100g: { energy: 60, protein: 0 } });
+    expect(dishNutrientsPer100g(d, undefined, INGREDIENTS)).toEqual({ energy: 60, protein: 0 });
   });
 });
 

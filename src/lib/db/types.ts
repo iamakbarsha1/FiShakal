@@ -26,16 +26,21 @@ export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
   dinner: 'Dinner',
 };
 
-export interface Ingredient {
+interface IngredientBase {
   id: string;
   name: string;
   /** Per 100 g, canonical units. */
   per100g: NutrientVector;
   densityGPerMl?: number;
-  /** Provenance, required by spec §13 so licensing stays auditable. */
-  source: 'usda-fdc' | 'authored';
-  sourceRef?: string;
 }
+
+/**
+ * Provenance, required by spec §13 so licensing stays auditable: a
+ * `usda-fdc` ingredient must carry the reference it was pulled from, and an
+ * `authored` one — invented in-house — has no reference to carry.
+ */
+export type Ingredient = IngredientBase &
+  ({ source: 'usda-fdc'; sourceRef: string } | { source: 'authored'; sourceRef?: never });
 
 export type DishDerivation = 'authored' | 'recipe';
 

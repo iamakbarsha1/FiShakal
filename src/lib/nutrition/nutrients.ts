@@ -22,7 +22,7 @@ export function addVectors(a: NutrientVector, b: NutrientVector): NutrientVector
 
 export function scaleVector(v: NutrientVector, factor: number): NutrientVector {
   if (!Number.isFinite(factor)) {
-    throw new RangeError(`Scale factor must be finite, got ${factor}.`);
+    throw new InvalidQuantityError(`Scale factor must be finite, got ${factor}.`);
   }
   const out: NutrientVector = {};
   for (const [key, value] of Object.entries(v) as [NutrientKey, number][]) {
@@ -34,7 +34,7 @@ export function scaleVector(v: NutrientVector, factor: number): NutrientVector {
 /** Scale a per-100g vector to an arbitrary mass in grams. */
 export function nutrientsForMass(per100g: NutrientVector, grams: number): NutrientVector {
   if (!Number.isFinite(grams) || grams < 0) {
-    throw new RangeError(`Mass must be a non-negative finite number, got ${grams}.`);
+    throw new InvalidQuantityError(`Mass must be a non-negative finite number, got ${grams}.`);
   }
   return scaleVector(per100g, grams / 100);
 }

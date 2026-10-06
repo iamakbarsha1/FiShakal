@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { convert, toCanonical, NUTRIENTS, UnitMismatchError } from './units';
+import { convert, toCanonical, NUTRIENTS, UnitMismatchError, type NutrientKey } from './units';
 
 describe('convert', () => {
   it('converts milligrams to grams', () => {
@@ -49,9 +49,11 @@ describe('toCanonical', () => {
     expect(() => toCanonical('energy', 100, 'g')).toThrow(UnitMismatchError);
   });
 
-  it('declares a canonical unit for every nutrient', () => {
-    for (const [key, def] of Object.entries(NUTRIENTS)) {
-      expect(def.unit, `${key} has no unit`).toBeDefined();
+  it('round-trips every nutrient through its own canonical unit unchanged', () => {
+    const keys = Object.keys(NUTRIENTS) as NutrientKey[];
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      expect(toCanonical(key, 7.25, NUTRIENTS[key].unit)).toBe(7.25);
     }
   });
 });
