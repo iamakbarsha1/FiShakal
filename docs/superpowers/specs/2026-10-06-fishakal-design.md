@@ -56,7 +56,7 @@ Vessel units and cost-ranking are table stakes. Neither can carry the product on
 |---|---|---|
 | v1 spine | Plate-not-grams logging | Adherence is the binding constraint |
 | v1 surface | **Log only** | Plan deferred to v1.5 by decision |
-| Platform | Next.js 15 PWA, installable | Existing stack, no store review, mobile-first |
+| Platform | Next.js 16 PWA, installable | Existing stack, no store review, mobile-first |
 | Backend | **None in v1** | See §7 |
 | Source | Closed, commercial | Set at outset |
 | Food data | Hand-seeded + USDA FDC (CC0) | No INDB dependency |
@@ -84,7 +84,7 @@ Three candidates, all producing identical architecture. Decide before launch, no
 
 ### No backend
 
-Next.js 15 static export, deployed to Vercel. All state in IndexedDB via Dexie. Device migration by JSON export/import.
+Next.js 16 static export, deployed to Vercel. All state in IndexedDB via Dexie. Device migration by JSON export/import.
 
 The app works fully offline. There is no auth layer, no hosting cost, and no personal data on any server, which also means there is nothing to breach and no stored payment relationship. Accounts arrive in v2 only when community features require them, and sync will be opt-in.
 

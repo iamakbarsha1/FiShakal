@@ -9,7 +9,7 @@ Continues in `2026-10-06-fishakal-v1-log-PART2.md` (seed data, aggregation, log 
 
 **Architecture:** A Next.js 15 static export backed entirely by IndexedDB through Dexie. All nutrition logic is pure TypeScript with no React or Next imports, so it is unit-testable in isolation. Portion input of five different kinds (metric, vessel, hand, photo, relative) resolves to grams through a single function; nothing downstream knows which kind was used. Log entries store a portion reference rather than computed grams, so recalibrating a vessel retroactively corrects history.
 
-**Tech Stack:** Next.js 15 (App Router, static export), React 19, TypeScript 5, Tailwind CSS v4, Dexie 4 (IndexedDB), Vitest 3 (unit tests), `@vitest/coverage-v8`.
+**Tech Stack:** Next.js 16 (App Router, static export; 15 is the floor), React 19, TypeScript 5, Tailwind CSS v4, Dexie 4 (IndexedDB), Vitest 3 (unit tests), `@vitest/coverage-v8`.
 
 **Spec:** `docs/superpowers/specs/2026-10-06-fishakal-design.md`
 
@@ -20,7 +20,7 @@ Continues in `2026-10-06-fishakal-v1-log-PART2.md` (seed data, aggregation, log 
 These apply to every task in all three parts.
 
 - **Node 20+**, package manager `npm`. Lockfile is committed.
-- **Next.js 15 App Router with `output: 'export'`.** No server components doing data access, no route handlers, no server actions. Any code touching the database is client-side.
+- **Next.js 15 or later, App Router, with `output: 'export'`.** Task 1 installed 16.3.8, which `create-next-app@latest` now ships; Turbopack is its default builder. `output: 'export'` is unaffected and the build writes `out/`. No server components doing data access, no route handlers, no server actions. Any code touching the database is client-side.
 - **TypeScript `strict: true`.** No `any` in committed code. No non-null assertions (`!`) except in Dexie table declarations, which require them.
 - **No new runtime dependency** may be added beyond those named in Tech Stack without the dependency being justified in the task that adds it.
 - **All nutrition and portion logic lives under `src/lib/` and imports nothing from `react`, `next`, or `dexie`.** Database access is confined to `src/lib/db/`. This boundary is what makes the logic testable and is enforced by Task 1's lint rule.
