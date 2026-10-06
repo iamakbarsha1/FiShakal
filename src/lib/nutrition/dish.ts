@@ -45,6 +45,13 @@ export function computeRecipeNutrients(
         `Recipe ${recipe.id} has invalid mass for ${item.ingredientId}: ${item.grams}.`,
       );
     }
+    for (const [key, value] of Object.entries(ingredient.per100g)) {
+      if (!Number.isFinite(value)) {
+        throw new RecipeComputationError(
+          `Ingredient ${ingredient.id} has a non-finite value for ${key}: ${value}.`,
+        );
+      }
+    }
     total = addVectors(total, nutrientsForMass(ingredient.per100g, item.grams));
   }
 
@@ -65,6 +72,11 @@ export function dishNutrientsPer100g(
   if (!recipe) {
     throw new RecipeComputationError(
       `Dish ${dish.id} is recipe-derived but no recipe was supplied.`,
+    );
+  }
+  if (recipe.dishId !== dish.id) {
+    throw new RecipeComputationError(
+      `Recipe ${recipe.id} belongs to dish ${recipe.dishId}, not ${dish.id}.`,
     );
   }
   return computeRecipeNutrients(recipe, ingredientsById);

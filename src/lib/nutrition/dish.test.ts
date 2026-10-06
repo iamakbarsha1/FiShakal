@@ -57,6 +57,11 @@ describe('dishNutrientsPer100g', () => {
     expect(() => dishNutrientsPer100g(dish({ derivation: 'recipe' }), undefined, INGREDIENTS))
       .toThrow(RecipeComputationError);
   });
+
+  it('throws when the supplied recipe belongs to another dish', () => {
+    const r: Recipe = { id: 'r1', dishId: 'other-dish', items: [{ ingredientId: 'i-dal', grams: 100 }], yieldGrams: 500, retentionFactor: 1 };
+    expect(() => dishNutrientsPer100g(dish({ derivation: 'recipe' }), r, INGREDIENTS)).toThrow(RecipeComputationError);
+  });
 });
 
 describe('computeRecipeNutrients', () => {
@@ -78,5 +83,17 @@ describe('computeRecipeNutrients', () => {
   it('throws on an empty ingredient list', () => {
     const r: Recipe = { id: 'r1', dishId: 'd1', items: [], yieldGrams: 500, retentionFactor: 1 };
     expect(() => computeRecipeNutrients(r, INGREDIENTS)).toThrow(RecipeComputationError);
+  });
+
+  it('throws on an ingredient with a NaN nutrient value', () => {
+    const bad: Ingredient = { id: 'i-bad', name: 'Corrupt', source: 'authored', per100g: { protein: Number.NaN } };
+    const r: Recipe = { id: 'r1', dishId: 'd1', items: [{ ingredientId: 'i-bad', grams: 100 }], yieldGrams: 500, retentionFactor: 1 };
+    expect(() => computeRecipeNutrients(r, new Map([[bad.id, bad]]))).toThrow(RecipeComputationError);
+  });
+
+  it('throws on an ingredient with an infinite nutrient value', () => {
+    const bad: Ingredient = { id: 'i-bad', name: 'Corrupt', source: 'authored', per100g: { energy: Number.POSITIVE_INFINITY } };
+    const r: Recipe = { id: 'r1', dishId: 'd1', items: [{ ingredientId: 'i-bad', grams: 100 }], yieldGrams: 500, retentionFactor: 1 };
+    expect(() => computeRecipeNutrients(r, new Map([[bad.id, bad]]))).toThrow(RecipeComputationError);
   });
 });
